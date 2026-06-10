@@ -17,15 +17,15 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: 安装依赖
+    - name: 安装 Python 依赖
       run: |
         python -m pip install --upgrade pip
-        pip install PyQt6 watchdog numpy networkx pandas
-        pip install pyinstaller
+        # 安装你项目里用到的所有库
+        pip install PyQt6 watchdog numpy networkx pandas pyinstaller
 
     - name: 使用 PyInstaller 生成可执行文件
       run: |
-        # 这里的 --add-data 语法在 Windows 终端需要用分号 ;
+        # 使用 powershell 的换行符 `
         pyinstaller --noconsole --name "园林景观智能设计平台" `
         --add-data "modules;modules" `
         --add-data "core;core" `
@@ -35,14 +35,14 @@ jobs:
         --clean `
         main.py
 
-    - name: 安装 Inno Setup 引擎
-      uses: MinGK/setup-innosetup@v3
+    - name: 使用内置 Inno Setup 编译安装包
+      shell: pwsh
+      run: |
+        # GitHub Windows 镜像自带 ISCC 编译器，直接调用即可
+        & "iscc" build_installer.iss
 
-    - name: 编译安装向导 (.exe)
-      run: iscc build_installer.iss
-
-    - name: 上传安装包到 Artifacts
+    - name: 上传安装包到 GitHub Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: 园林设计平台-安装包
+        name: 园林设计平台-Windows安装包
         path: Output/*.exe
