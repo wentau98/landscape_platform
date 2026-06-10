@@ -1,9 +1,20 @@
-from PyQt6.QtWidgets import QMainWindow, QStackedWidget, QListWidget, QHBoxLayout, QVBoxLayout, QWidget
+import os
+
+from PyQt6.QtWidgets import QLabel, QMainWindow, QStackedWidget, QListWidget, QHBoxLayout, QVBoxLayout, QWidget
 import importlib
 import sys
 
 from ui.style import GLOBAL_STYLE
-
+from PyQt6.QtCore import Qt 
+# --- 核心修复：强制定位 EXE 内部解压路径 ---
+if getattr(sys, 'frozen', False):
+    # 打包后的解压临时目录
+    bundle_dir = sys._MEIPASS
+    if bundle_dir not in sys.path:
+        sys.path.append(bundle_dir)
+    # 确保当前目录也在路径中
+    if os.getcwd() not in sys.path:
+        sys.path.append(os.getcwd())
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -97,17 +108,61 @@ class MainWindow(QMainWindow):
             ("版本数据回溯", "version_control")
         ]
         
+        # for name, mod_name in modules_info:
+        #     self.menu_list.addItem(name)
+        #     # 动态导入模块逻辑
+        #     try:
+        #         # module = importlib.import_module(f"modules.{mod_name}")
+        #         # 显式使用全路径导入
+        #         module_path = f"modules.{mod_name}"
+        #         module = importlib.import_module(module_path)
+        #         # 假设每个模块都有一个 get_widget 方法
+        #         widget = module.get_widget() 
+        #         widget._module_identifier = mod_name 
+        #         # widget._module_name = mod_name  <-- 必须加这一行，重载时才找得到
+        #         widget._module_name = mod_name
+        #         self.content_stack.addWidget(widget)
+        #         self.module_map[mod_name] = widget
+        #     except Exception as e:
+        #         # 如果加载失败，在界面上显示错误，方便排查
+        #         error_label = QLabel(f"模块 {mod_name} 加载失败:\n{str(e)}")
+        #         self.content_stack.addWidget(error_label)
+        #         print(f"Error loading {mod_name}: {e}")
+        #         print(f"加载模块 {mod_name} 失败: {e}")
         for name, mod_name in modules_info:
             self.menu_list.addItem(name)
-            # 动态导入模块逻辑
             try:
-                module = importlib.import_module(f"modules.{mod_name}")
-                # 假设每个模块都有一个 get_widget 方法
-                widget = module.get_widget() 
+                # 核心修复：使用全限定名，并强制刷新
+                module_path = f"modules.{mod_name}"
+                
+                # 在打包环境下，有时需要先尝试直接导入
+                module = importlib.import_module(module_path)
+                # 如果是热更新，强制重新读取
+                if not getattr(sys, 'frozen', False):
+                    importlib.reload(module)
+                
+                widget = module.get_widget()
+                
+                # 为热更新和定位打上双重标签
                 widget._module_identifier = mod_name 
-                # widget._module_name = mod_name  <-- 必须加这一行，重载时才找得到
                 widget._module_name = mod_name
+                
                 self.content_stack.addWidget(widget)
                 self.module_map[mod_name] = widget
+                
             except Exception as e:
-                print(f"加载模块 {mod_name} 失败: {e}")
+                # 核心修复：如果加载失败，也要占位，否则侧边栏索引会错位
+                error_container = QWidget()
+                err_layout = QVBoxLayout(error_container)
+                
+                err_msg = f"模块 {mod_name} 引擎启动失败\n原因: {str(e)}"
+                label = QLabel(err_msg)
+                label.setStyleSheet("color: #E11D48; font-weight: bold; background: #FFF1F2; padding: 20px; border-radius: 10px;")
+                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                
+                err_layout.addWidget(label)
+                # 也要给错误占位符打标签，方便以后热更新修复它
+                error_container._module_identifier = mod_name
+                
+                self.content_stack.addWidget(error_container)
+                print(f"CRITICAL: 加载模块 {mod_name} 失败: {e}")

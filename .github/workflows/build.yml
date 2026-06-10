@@ -31,6 +31,18 @@ jobs:
         --add-data "core;core" `
         --add-data "ui;ui" `
         --add-data "data;data" `
+        --collect-submodules modules `
+        --hidden-import "modules" `
+        --hidden-import modules.terrain_engine `
+        --hidden-import modules.plant_logic `
+        --hidden-import modules.hydrology_sim `
+        --hidden-import modules.path_planner `
+        --hidden-import modules.material_audit `
+        --hidden-import modules.workflow_appr `
+        --hidden-import modules.eco_balance `
+        --hidden-import modules.lighting_calc `
+        --hidden-import modules.construction `
+        --hidden-import modules.version_control `
         --collect-all PyQt6 `
         --clean `
         main.py
